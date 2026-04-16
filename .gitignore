@@ -1,6 +1,6 @@
 .conda/
 __pycache__/
-*.pth
+
 *.pt
 data/
 dataset/

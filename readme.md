@@ -1,7 +1,5 @@
 # ANCF-Net: Adaptive Context Fusion and Dynamic Scale Modeling for High-Fidelity Point Cloud Upsampling
 
- *(Note: Replace with your actual Zenodo DOI link)*
-
 This is the official PyTorch implementation of our paper **"Adaptive Context Fusion and Dynamic Scale Modeling for High-Fidelity Point Cloud Upsampling"** (Submitted to *The Visual Computer*).
 
 ## Abstract
