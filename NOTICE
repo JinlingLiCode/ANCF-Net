@@ -1,0 +1,12 @@
+ANCF-Net
+Copyright 2026 Jinling Li, Weigang Li, Yongqiang Wang, and Yuntao Zhao
+
+ANCF-Net is derived in part from Grad-PU:
+https://github.com/yunhe20/Grad-PU
+
+The pc_eval directory is adapted from HFCI-PU, commit
+cb257fea1f0e28d71a92f83050f7ee8e320e0c54:
+https://github.com/xiaolongTang163/HFCI-PU
+
+Grad-PU and HFCI-PU are distributed under the Apache License 2.0.
+The full license text is provided in the LICENSE file.

@@ -17,7 +17,13 @@ if __name__ == "__main__":
     parser.add_argument('--jitter_max', default=0.03, type=float, help="jitter max")
     parser.add_argument('--mesh_dir', default='./data/PU1K/test/original_meshes/', type=str, help='input mesh dir')
     parser.add_argument('--save_dir', default='./data/PU1K/test/', type=str, help='output point cloud dir')
+    parser.add_argument('--seed', default=21, type=int, help='random seed')
     args = parser.parse_args()
+
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    if hasattr(o3d.utility, 'random'):
+        o3d.utility.random.seed(args.seed)
 
     dir_name = 'input_' + str(args.input_pts_num)
     if args.gt_pts_num % args.input_pts_num == 0:
@@ -36,7 +42,7 @@ if __name__ == "__main__":
         os.makedirs(gt_save_dir)
     mesh_path = glob(os.path.join(args.mesh_dir, '*.off'))
     for i, path in tqdm(enumerate(mesh_path), desc='Processing'):
-        pcd_name = path.split('/')[-1].replace(".off", ".xyz")
+        pcd_name = os.path.basename(path).replace(".off", ".xyz")
         mesh = o3d.io.read_triangle_mesh(path)
         # input pcd
         input_pcd = mesh.sample_points_poisson_disk(args.input_pts_num)

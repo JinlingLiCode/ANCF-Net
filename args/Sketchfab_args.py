@@ -2,12 +2,12 @@ import argparse
 from args.utils import str2bool
 
 
-def parse_Sketchfab_args():
+def parse_Sketchfab_args(argv=None):
     parser = argparse.ArgumentParser(description='Model Arguments')
     # seed
     parser.add_argument('--exp_name', default='exp', type=str)
     parser.add_argument('--gpu', type=int, default=0, required=False)
-    parser.add_argument('--seed', default=21, type=float, help='seed')
+    parser.add_argument('--seed', default=21, type=int, help='seed')
     # optimizer
     parser.add_argument('--optim', default='adam', type=str, help='optimizer, adam or sgd')
     parser.add_argument('--lr', default=1e-3, type=float, help='learning rate')
@@ -17,14 +17,14 @@ def parse_Sketchfab_args():
     parser.add_argument('--gamma', default=0.5, type=float, help='gamma for scheduler_steplr')
     # dataset
     parser.add_argument('--dataset', default='Sketchfab', type=str, help='pu1k or pugan or Sketchfab')
-    parser.add_argument('--h5_file_path', default="/Sketchfab/pointclouds/Self_sketchfab_256_1024_poisson.h5", type=str, help='the path of train dataset')
+    parser.add_argument('--h5_file_path', default="./data/Sketchfab/train/Self_sketchfab_256_1024_poisson.h5", type=str, help='the path of train dataset')
     parser.add_argument('--num_points', default=256, type=int, help='the points number of each input patch')
     parser.add_argument('--skip_rate', default=1, type=int, help='used for dataset')
     parser.add_argument('--use_random_input', default=False, type=str2bool, help='whether use random sampling for input generation')
     parser.add_argument('--jitter_sigma', type=float, default=0.01, help="jitter augmentation")
     parser.add_argument('--jitter_max', type=float, default=0.03, help="jitter augmentation")
     # train
-    parser.add_argument('--epochs', default=60, type=int, help='training epochs')
+    parser.add_argument('--epochs', default=100, type=int, help='training epochs')
     parser.add_argument('--batch_size', default=32, type=int, help='batch size')
     parser.add_argument('--num_workers', default=4, type=int, help='workers number')
     parser.add_argument('--print_rate', default=200, type=int, help='loss print frequency in each epoch')
@@ -45,16 +45,15 @@ def parse_Sketchfab_args():
     parser.add_argument('--truncate_distance', default=False, type=str2bool, help='whether truncate distance')
     parser.add_argument('--max_dist', default=0.2, type=float, help='the maximum point-to-point distance')
     # ouput
-    parser.add_argument('--out_path', default='./output3', type=str, help='the checkpoint and log save path')
+    parser.add_argument('--out_path', default='./output', type=str, help='the checkpoint and log save path')
     # test
     parser.add_argument('--num_iterations', default=10, type=int, help='the number of update iterations')
     parser.add_argument('--test_step_size', default=500, type=float, help='predefined test step size')
-    parser.add_argument('--test_input_path', default='/Sketchfab/pointclouds/test/2048_poisson/', type=str, help='the test input data path')
-    # parser.add_argument('--ckpt_path', default='./pretrained_model/pu1k/ckpt/ckpt-epoch-60.pth', type=str, help='the pretrained model path')
-    parser.add_argument('--ckpt_path', default='/Sketchfab-bs64-120_2024-07-11T11:03:35.089993/ckpt/ckpt-epoch-120.pth', type=str, help='the pretrained model path')
+    parser.add_argument('--test_input_path', default='./data/Sketchfab/test/input_2048/input_2048/', type=str, help='the test input data path')
+    parser.add_argument('--ckpt_path', default='./pretrained_model/Sketchfab/ckpt/Sketchfab.pth', type=str, help='the pretrained model path')
     parser.add_argument('--patch_rate', default=3, type=int, help='used for patch generation')
     parser.add_argument('--save_dir', default='pcd', type=str, help='save upsampled point cloud')
     parser.add_argument('--double_4X', default=False, type=str2bool, help='conduct 4X twice to get 16X')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     return args

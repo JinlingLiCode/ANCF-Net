@@ -3,7 +3,6 @@ import torch
 import numpy as np
 from glob import glob
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "5"
 # print("Available GPUs:", torch.cuda.device_count())
 
 import open3d as o3d
@@ -95,7 +94,7 @@ def pcd_upsample(args, model, input_pcd):
 def test(args):
     #load model
     model = P2PNet(args).cuda()
-    model.load_state_dict(torch.load(args.ckpt_path))
+    model.load_state_dict(torch.load(args.ckpt_path, map_location='cpu'))
     model.eval()
 
     # model = P2PNet(args)
@@ -121,7 +120,9 @@ def test(args):
     # 使用 DataParallel 包装模型
 
     # test input data path list
-    test_input_path = glob(os.path.join(args.test_input_path, '*.xyz'))
+    test_input_path = sorted(glob(os.path.join(args.test_input_path, '*.xyz')))
+    if not test_input_path:
+        raise FileNotFoundError(f'No .xyz files were found in {args.test_input_path}.')
 
     # conduct 4X twice to get 16X
     if args.up_rate == 16:
@@ -129,8 +130,8 @@ def test(args):
         args.double_4X = True
 
     # log
-    output_dir = os.path.join(args.ckpt_path, '../..')
-    output_dir = os.path.abspath(output_dir)
+    checkpoint_path = os.path.abspath(args.ckpt_path)
+    output_dir = os.path.dirname(os.path.dirname(checkpoint_path))
     test_dir = os.path.join(output_dir, 'test')
     if not os.path.exists(test_dir):
         os.makedirs(test_dir)
@@ -148,7 +149,7 @@ def test(args):
         start = time()
         # each time upsample one point cloud
         pcd = o3d.io.read_point_cloud(path)
-        pcd_name = path.split('/')[-1]
+        pcd_name = os.path.basename(path)
         input_pcd = np.array(pcd.points)
         input_pcd = torch.from_numpy(input_pcd).float().cuda()
         # (n, 3) -> (3, n)
@@ -186,38 +187,57 @@ def test(args):
 
 
 def parse_test_args():
-    parser = argparse.ArgumentParser(description='Test Arguments')
+    parser = argparse.ArgumentParser(description='Test Arguments', allow_abbrev=False)
 
-    parser.add_argument('--dataset', default='pugan', type=str, help='pu1k or pugan')
-    # parser.add_argument('--test_input_path', default='./data/pugan/test/input_2048/input_2048/', type=str,
-    #                     help='the test input data path')
-    parser.add_argument('--test_input_path', default='./data/PU-GAN/test_pointcloud/input_2048_4X/input_2048/', type=str,
-                        help='the test input data path')
-    parser.add_argument('--ckpt_path', default='./pretrained_model/pugan/ckpt/ckpt-epoch-60.pth', type=str, help='the pretrained model path')
+    parser.add_argument('--dataset', default='pugan', type=str, help='pu1k, pugan, or Sketchfab')
+    parser.add_argument('--gpu', default='0', type=str, help='visible CUDA device index')
+    parser.add_argument('--test_input_path', default=None, type=str,
+                        help='the test input data path; selected from --dataset and --up_rate when omitted')
+    parser.add_argument('--ckpt_path', default=None, type=str, help='the pretrained model path')
     parser.add_argument('--save_dir', default='pcd', type=str, help='save upsampled point cloud')
     parser.add_argument('--truncate_distance', default=True, type=str2bool, help='whether truncate distance')
     parser.add_argument('--up_rate', default=4, type=int, help='upsampling rate')
     parser.add_argument('--double_4X', default=False, type=str2bool, help='conduct 4X twice to get 16X')
 
-    args = parser.parse_args()
-    return args
+    args, remaining_args = parser.parse_known_args()
+    return args, remaining_args
 
 
 if __name__ == "__main__":
-    test_args = parse_test_args()
+    test_args, remaining_args = parse_test_args()
     assert test_args.dataset in ['pu1k', 'pugan','Sketchfab']
 
+    os.environ['CUDA_VISIBLE_DEVICES'] = test_args.gpu
+
+    if test_args.ckpt_path is None:
+        default_checkpoints = {
+            'pugan': './pretrained_model/pugan/ckpt/pugan.pth',
+            'pu1k': './pretrained_model/pu1k/ckpt/pu1k.pth',
+            'Sketchfab': './pretrained_model/Sketchfab/ckpt/Sketchfab.pth',
+        }
+        test_args.ckpt_path = default_checkpoints[test_args.dataset]
+
+    if test_args.test_input_path is None:
+        default_inputs = {
+            ('pugan', 4): './data/PU-GAN/test_pointcloud/input_2048_4X/input_2048/',
+            ('pugan', 16): './data/PU-GAN/test_pointcloud/input_2048_16X/input_2048/',
+            ('pu1k', 4): './data/PU1K/test/input_2048/input_2048/',
+            ('pu1k', 16): './data/PU1K/test/input_2048/input_2048/',
+            ('Sketchfab', 4): './data/Sketchfab/test/input_2048/input_2048/',
+            ('Sketchfab', 16): './data/Sketchfab/test/input_2048/input_2048/',
+        }
+        try:
+            test_args.test_input_path = default_inputs[(test_args.dataset, test_args.up_rate)]
+        except KeyError as error:
+            raise ValueError('Only 4x and 16x upsampling are supported by the default test paths.') from error
+
     if test_args.dataset == 'pu1k':
-        model_args = parse_pu1k_args()
+        model_args = parse_pu1k_args(remaining_args)
     elif test_args.dataset == 'pugan':
-        model_args = parse_pugan_args()
+        model_args = parse_pugan_args(remaining_args)
     else:
-        model_args = parse_Sketchfab_args()
+        model_args = parse_Sketchfab_args(remaining_args)
 
     reset_model_args(test_args, model_args)
 
     test(model_args)
-
-
-
-

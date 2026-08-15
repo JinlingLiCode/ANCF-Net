@@ -16,7 +16,6 @@ from args.utils import str2bool
 from models.utils import *
 # from models.pointasnl_utils import *
 import argparse
-parser = argparse.ArgumentParser()
 
 
 def train(args):
@@ -32,7 +31,7 @@ def train(args):
 
     # set up folders for checkpoints and logs
     exp_name = args.exp_name
-    str_time = exp_name+'_'+ datetime.now().isoformat()
+    str_time = exp_name + '_' + datetime.now().strftime('%Y-%m-%dT%H-%M-%S')
     output_dir = os.path.join(args.out_path, str_time)
     ckpt_dir = os.path.join(output_dir, 'ckpt')
     if not os.path.exists(ckpt_dir):
@@ -134,35 +133,35 @@ def train(args):
             torch.save(model.state_dict(), model_path)
 
 def parse_train_args():
-    parser = argparse.ArgumentParser(description='Training Arguments')
+    parser = argparse.ArgumentParser(description='Training Arguments', allow_abbrev=False)
 
     parser.add_argument('--exp_name', default='exp', type=str)
-    parser.add_argument('--gpu', type=str, default="6", required=False)
-    parser.add_argument('--dataset', default='pu1k', type=str, help='pu1k or pugan')
+    parser.add_argument('--gpu', type=str, default="0", required=False)
+    parser.add_argument('--dataset', default='pu1k', type=str, help='pu1k, pugan, or Sketchfab')
     parser.add_argument('--optim', default='adam', type=str, help='optimizer, adam or sgd')
     parser.add_argument('--lr', default=1e-3, type=float, help='learning rate')
-    parser.add_argument('--epochs', default=120, type=int, help='training epochs')
+    parser.add_argument('--epochs', default=100, type=int, help='training epochs')
     parser.add_argument('--batch_size', default=32, type=int, help='batch size')
     parser.add_argument('--print_rate', default=200, type=int, help='loss print frequency in each epoch')
     parser.add_argument('--save_rate', default=10, type=int, help='model save frequency')
-    parser.add_argument('--out_path', default='./output7', type=str, help='the checkpoint and log save path')
+    parser.add_argument('--out_path', default='./output', type=str, help='the checkpoint and log save path')
 
-    args = parser.parse_args()
-    return args
+    args, remaining_args = parser.parse_known_args()
+    return args, remaining_args
 
 
 if __name__ == "__main__":
-    train_args = parse_train_args()
+    train_args, remaining_args = parse_train_args()
     os.environ['CUDA_VISIBLE_DEVICES'] = train_args.gpu
 
     assert train_args.dataset in ['pu1k', 'pugan','Sketchfab']
 
     if train_args.dataset == 'pu1k':
-        model_args = parse_pu1k_args()
+        model_args = parse_pu1k_args(remaining_args)
     elif train_args.dataset == 'pugan':
-        model_args = parse_pugan_args()
+        model_args = parse_pugan_args(remaining_args)
     else:
-        model_args = parse_Sketchfab_args()
+        model_args = parse_Sketchfab_args(remaining_args)
 
     reset_model_args(train_args, model_args)
 

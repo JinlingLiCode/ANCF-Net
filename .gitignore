@@ -1,6 +1,15 @@
 .conda/
+.torch_extensions/
+.idea/
 __pycache__/
+*.py[cod]
 
 *.pt
 data/
-dataset/
+output*/
+results/
+pretrained_model/*/test/
+pc_eval/build/
+pc_eval/eval.csv
+pc_eval/finalresult.txt
+pc_eval/*_point2mesh_distance.txt

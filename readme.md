@@ -1,157 +1,223 @@
-# ANCF-Net: Adaptive Context Fusion and Dynamic Scale Modeling for High-Fidelity Point Cloud Upsampling
+# ANCF-Net: Adaptive Neighborhood Context Fusion with Dynamic Scale Modeling for High-Fidelity Point Cloud Upsampling
 
-This is the official PyTorch implementation of our paper **"Adaptive Context Fusion and Dynamic Scale Modeling for High-Fidelity Point Cloud Upsampling"** (Submitted to *The Visual Computer*).
+Official PyTorch implementation of **ANCF-Net: Adaptive Neighborhood Context
+Fusion with Dynamic Scale Modeling for High-Fidelity Point Cloud Upsampling**.
 
-## Abstract
+The repository contains the training and inference code, pretrained models for
+PU-GAN, PU1K, and Sketchfab, and the evaluation scripts used to compute CD,
+HD, EMD, P2F-avg, and P2F-std in the manuscript.
 
-Point cloud upsampling is a critical preprocessing step for 3D vision tasks such as autonomous driving and surface reconstruction. Existing refinement-based methods often rely on fixed-scale neighborhood feature extraction, leading to insufficient capture of global context and local geometric details, which degrades the quality of upsampled point clouds. To address these limitations, this paper presents an adaptive neighborhood context fusion network (ANCF-Net) for high-fidelity point cloud upsampling. The proposed method employs a neighborhood context aggregator to fuse global and local features within point neighborhoods, and a dynamic scale-aware module to assign adaptive weights to multi-scale neighborhood features. These components enable the network to flexibly capture geometric structures of varying complexity. Extensive experiments on synthetic and real-world datasets show that ANCF-Net achieves state-of-the-art performance, reducing Chamfer distance and Hausdorff distance significantly compared with existing methods, while improving detail preservation and structural consistency. This work provides an effective solution for high-quality point cloud upsampling and can benefit various downstream 3D vision applications.
+## Environment
 
-## Requirements
+The experiments were conducted with:
 
-The code has been tested on Ubuntu with the following environment:
+- Ubuntu
+- Python 3.7.11
+- PyTorch 1.7.1
+- CUDA 11.0
 
-- Python >= 3.7
-- PyTorch >= 1.7.1
-- CUDA >= 11.0
-- `numpy`, `open3d`, `einops`, `scikit-learn`, `tqdm`, `h5py`
+One possible installation is:
 
-To set up the environment, run:
-
-Bash
-
-```
-# Create a new conda environment (optional but recommended)
-conda create -n ancfnet python=3.7
+```bash
+conda create -n ancfnet python=3.7.11
 conda activate ancfnet
-
-# Install dependencies
+pip install torch==1.7.1+cu110 torchvision==0.8.2+cu110 \
+  -f https://download.pytorch.org/whl/torch_stable.html
 pip install -r requirements.txt
 ```
 
-### Install Custom PointOps & Chamfer Distance
+Compile the CUDA operators used by ANCF-Net:
 
-You need to compile the custom CUDA operations for PointNet++ and Chamfer Distance calculation:
-
-Bash
-
-```
-# Compile Chamfer3D
+```bash
 cd models/Chamfer3D
 python setup.py install
-cd ../..
-
-# Compile pointops
-cd models/pointops
+cd ../pointops
 python setup.py install
 cd ../..
 ```
 
-*(Optional) Evaluation Code Compilation*: If you intend to calculate standard metrics (CD, HD, P2F), please ensure the CGAL library is installed and compile the evaluation code located in the `evaluation_code` folder, following standard PU-GAN/PU-GCN evaluation protocols.
+## Data preparation
 
-## Data Preparation
+Download the [PU-GAN](https://github.com/liruihui/PU-GAN) and
+[PU1K](https://github.com/guochengqian/PU-GCN) datasets from their official
+project pages. Dataset files are not redistributed by this repository.
 
-We train and evaluate our network on the widely used **PU-GAN** and **PU1K** datasets.
+The default training files are:
 
-Please download the datasets (train sets and test meshes) and organize them into the `data/` directory. Since the PU-GAN dataset provides mesh files for testing, we generate test point clouds via Poisson disk sampling.
-
-### Generate PU-GAN Test Point Clouds
-
-Bash
-
-```
-# Generate 4X upsampling test data
-python prepare_pugan.py --input_pts_num 2048 --gt_pts_num 8192
-
-# Generate 16X upsampling test data
-python prepare_pugan.py --input_pts_num 2048 --gt_pts_num 32768
-```
-
-*Note: You can add the `--noise_level` argument (e.g., `--noise_level 0.01`) to generate noisy inputs for robustness evaluation.*
-
-### Directory Structure
-
-Ensure your `data` directory looks like this:
-
-```
-data  
-├───PU-GAN
-│   ├───test             # test mesh files
-│   ├───test_pointcloud  # generated test point clouds
-│   │   ├───input_2048_4X
-│   │   ├───input_2048_16X
-│   │   ...
-│   └───train
-│       └───PUGAN_poisson_256_poisson_1024.h5
-└───PU1K
-    ├───test
-    └───train
-        └───pu1k_poisson_256_poisson_1024_pc_2500_patch50.h5 
+```text
+data/
+├── PU-GAN/
+│   ├── train/PUGAN_poisson_256_poisson_1024.h5
+│   └── test/                                  # reference OFF meshes
+├── PU1K/
+│   ├── train/pu1k_poisson_256_poisson_1024_pc_2500_patch50_addpugan.h5
+│   └── test/
+│       ├── input_2048/{input_2048,gt_8192}/   # official 4x test split
+│       └── original_meshes/                    # reference OFF meshes
+└── Sketchfab/
+    ├── train/Self_sketchfab_256_1024_poisson.h5
+    └── test/input_2048/input_2048/            # input XYZ files
 ```
 
-## Quick Start (Evaluation)
+Generate 2,048-point inputs and the corresponding ground truth from the
+PU-GAN test meshes:
 
-We provide pre-trained models in the `pretrained_model` directory. You can use them directly to reproduce the results reported in the paper.
+```bash
+# 4x: 2,048 -> 8,192 points
+python prepare_pugan.py --input_pts_num 2048 --gt_pts_num 8192 --seed 21
 
-### PU-GAN Testing
-
-Bash
-
-```
-# 4X Upsampling
-python test.py --dataset pugan --test_input_path ./data/PU-GAN/test_pointcloud/input_2048_4X/input_2048/ --ckpt_path ./pretrained_model/pugan/ckpt/best_model.pth --save_dir 4X --up_rate 4
-
-# 16X Upsampling
-python test.py --dataset pugan --test_input_path ./data/PU-GAN/test_pointcloud/input_2048_16X/input_2048/ --ckpt_path ./pretrained_model/pugan/ckpt/best_model.pth --save_dir 16X --up_rate 16
+# 16x: 2,048 -> 32,768 points
+python prepare_pugan.py --input_pts_num 2048 --gt_pts_num 32768 --seed 21
 ```
 
-The upsampled point clouds will be saved in `./pretrained_model/pugan/test/save_dir`.
+The official PU1K download already contains the 4x `input_2048` test split.
+The same mesh-sampling utility is available when a regenerated 4x or 16x
+split is required:
 
-### PU1K Testing
-
-Bash
-
-```
-# 4X Upsampling
-python test.py --dataset pu1k --test_input_path ./data/PU1K/test/input_2048/input_2048/ --ckpt_path ./pretrained_model/pu1k/ckpt/best_model.pth --save_dir 4X --up_rate 4
+```bash
+python prepare_pu1k.py --input_pts_num 2048 --gt_pts_num 8192 --seed 21
+python prepare_pu1k.py --input_pts_num 2048 --gt_pts_num 32768 --seed 21
 ```
 
-## Training from Scratch
+Poisson-disk sampling in Open3D can vary across library versions. Use the
+reported Open3D version and seed when regenerating the test point clouds.
 
-To train ANCF-Net from scratch on the datasets, use the following commands:
+## Pretrained models and inference
 
-**Train on PU-GAN:**
+The provided checkpoints are:
 
-Bash
-
-```
-python train.py --dataset pugan
-```
-
-**Train on PU1K:**
-
-Bash
-
-```
-python train.py --dataset pu1k
+```text
+pretrained_model/pugan/ckpt/pugan.pth
+pretrained_model/pu1k/ckpt/pu1k.pth
+pretrained_model/Sketchfab/ckpt/Sketchfab.pth
 ```
 
-Training logs and model checkpoints will be saved in the `./output/` directory.
+PU-GAN:
 
-## Acknowledgments
+```bash
+python test.py --dataset pugan --up_rate 4 --save_dir 4X
+python test.py --dataset pugan --up_rate 16 --save_dir 16X
+```
 
-Our code implementation is inspired by and built upon several excellent open-source projects, including PU-GCN, PU-GAN, and Grad-PU. We sincerely thank the authors for making their code available to the community.
+PU1K:
+
+```bash
+python test.py --dataset pu1k --up_rate 4 --save_dir 4X
+python test.py --dataset pu1k --up_rate 16 --save_dir 16X
+```
+
+Sketchfab:
+
+```bash
+python test.py --dataset Sketchfab --up_rate 4 --save_dir 4X
+python test.py --dataset Sketchfab --up_rate 16 --save_dir 16X
+```
+
+The 16x setting applies the 4x pipeline twice. Use `--test_input_path` and
+`--ckpt_path` to override the default paths. Predictions are written to the
+`test/<save_dir>` directory next to the corresponding pretrained-model
+folder. For example, PU-GAN 4x predictions are saved to
+`pretrained_model/pugan/test/4X`.
+
+## Training
+
+All three dataset configurations use **100 epochs** by default:
+
+```bash
+python train.py --dataset pugan --exp_name pugan
+python train.py --dataset pu1k --exp_name pu1k
+python train.py --dataset Sketchfab --exp_name Sketchfab
+```
+
+The default training configuration is seed 21, Adam, batch size 32, initial
+learning rate `1e-3`, no weight decay, and StepLR with step size 20 and decay
+factor 0.5. Training uses 256-point inputs and 1,024-point targets. The query
+perturbation standard deviation is 0.02, the GFEB neighborhood size is
+`k=16`, the DSA neighborhood sizes are `{2, 4, 8}`, and the feature width is
+32. Checkpoints are saved every 10 epochs under `output/`.
+
+Dataset-specific options can be passed on the same command line. For example:
+
+```bash
+python train.py --dataset pugan \
+  --h5_file_path /path/to/PUGAN_poisson_256_poisson_1024.h5 \
+  --epochs 100 --batch_size 32
+```
+
+## Evaluation using the HFCI-PU protocol
+
+The `pc_eval` directory is adapted from
+[HFCI-PU](https://github.com/xiaolongTang163/HFCI-PU), commit
+`cb257fea1f0e28d71a92f83050f7ee8e320e0c54`. It implements the evaluation
+protocol used for the manuscript results.
+
+Install CMake and CGAL, then compile the CUDA extensions and the P2F program:
+
+```bash
+bash pc_eval/install.sh
+```
+
+Prediction and ground-truth directories must contain identically named `.xyz`
+files with the same number of points. The mesh directory must contain a
+matching `.off` file for every object.
+
+PU-GAN 4x example:
+
+```bash
+python -m pc_eval.eval \
+  --pred_dir ./pretrained_model/pugan/test/4X \
+  --gt_dir ./data/PU-GAN/test_pointcloud/input_2048_4X/gt_8192 \
+  --mesh_dir ./data/PU-GAN/test \
+  --output_dir ./results/pugan_4X
+```
+
+PU1K 4x example:
+
+```bash
+python -m pc_eval.eval \
+  --pred_dir ./pretrained_model/pu1k/test/4X \
+  --gt_dir ./data/PU1K/test/input_2048/gt_8192 \
+  --mesh_dir ./data/PU1K/test/original_meshes \
+  --output_dir ./results/pu1k_4X
+```
+
+For 16x evaluation, change the prediction directory to `16X` and use the
+corresponding `gt_32768` directory. Sketchfab can be evaluated with the same
+command by supplying its prediction, ground-truth, and reference-mesh paths.
+
+Following HFCI-PU, prediction and ground-truth point clouds are independently
+centered and normalized to the unit sphere before CD, HD, and EMD are
+computed. P2F is measured against the reference mesh. The `scaled_average`
+row in `eval.csv` uses the manuscript convention: CD and HD are multiplied by
+`1e3`, EMD by `1e2`, and P2F-avg/P2F-std by `1e3`. See
+[`pc_eval/README.md`](pc_eval/README.md) for details.
+
+## Reproducibility notes
+
+- Inference uses 1,024-point patches, patch-rate 3, and 10 refinement
+  iterations by default.
+- The default refinement step size is 50 for PU-GAN and 500 for PU1K and
+  Sketchfab.
+- No smoothing or denoising is applied after upsampling. FPS is used to merge
+  overlapping refined patches and retain the target number of points.
+- Random seeds control NumPy, PyTorch, and Python randomness. Exact GPU
+  reproducibility can still depend on CUDA and operator versions.
+
+## Acknowledgments and license
+
+ANCF-Net is derived in part from
+[Grad-PU](https://github.com/yunhe20/Grad-PU). The evaluation code is adapted
+from [HFCI-PU](https://github.com/xiaolongTang163/HFCI-PU). Both upstream
+projects are distributed under the Apache License 2.0. See `LICENSE` and
+`NOTICE` for attribution.
 
 ## Citation
 
-If you find this code or our paper useful in your research, please consider citing our work:
-
-代码段
-
-```
+```bibtex
 @article{ancfnet2026,
-  title={Adaptive Context Fusion and Dynamic Scale Modeling for High-Fidelity Point Cloud Upsampling},
+  title={ANCF-Net: Adaptive Neighborhood Context Fusion with Dynamic Scale Modeling for High-Fidelity Point Cloud Upsampling},
   author={Li, Jinling and Li, Weigang and Wang, Yongqiang and Zhao, Yuntao},
-  journal={Submitted to The Visual Computer},
+  journal={The Visual Computer},
   year={2026}
 }
 ```
